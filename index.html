@@ -5,7 +5,7 @@
 <title>Pastebun</title>
 
 <script>
-// ===== EXECUTOR-SAFE RAW MODE (NO REDIRECT NEEDED) =====
+// ===== TRUE RAW USING BLOB (EXECUTOR SAFE) =====
 (function() {
     const params = new URLSearchParams(window.location.search);
     const data = params.get("r");
@@ -14,25 +14,21 @@
         try {
             const decoded = decodeURIComponent(atob(data));
 
-            // Instantly replace page with raw content
-            document.open();
-            document.write(decoded);
-            document.close();
+            // Create real raw text file
+            const blob = new Blob([decoded], { type: "text/plain" });
+            const url = URL.createObjectURL(blob);
 
-            window.stop();
+            // Redirect to pure text view
+            window.location.replace(url);
         } catch (e) {
-            document.open();
-            document.write("Error decoding content.");
-            document.close();
+            document.body.innerText = "Error decoding content.";
         }
     }
 })();
 </script>
 
 <style>
-* {
-    box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
     margin: 0;
@@ -54,7 +50,6 @@ body {
     padding: 18px;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
 }
 
 .header {
@@ -62,7 +57,6 @@ body {
     font-weight: 700;
     color: #ffffff;
     margin-bottom: 12px;
-    letter-spacing: 0.5px;
 }
 
 textarea {
@@ -77,7 +71,6 @@ textarea {
     padding: 14px;
     border-radius: 10px;
     font-family: Consolas, monospace;
-    line-height: 1.5;
 }
 
 button {
@@ -85,17 +78,10 @@ button {
     padding: 13px;
     border: none;
     border-radius: 10px;
-    background: linear-gradient(135deg, #3a3f47, #4a505a);
+    background: #3a3f47;
     color: white;
     font-weight: 600;
-    font-size: 14px;
     cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-button:hover {
-    transform: translateY(-1px);
-    background: linear-gradient(135deg, #4a505a, #5a616c);
 }
 </style>
 </head>
@@ -112,7 +98,7 @@ button:hover {
 <script>
 const editor = document.getElementById("editor");
 
-// TAB SUPPORT (4 spaces)
+// TAB SUPPORT
 editor.addEventListener("keydown", function(e) {
     if (e.key === "Tab") {
         e.preventDefault();
@@ -128,24 +114,21 @@ editor.addEventListener("keydown", function(e) {
     }
 });
 
-// BUTTON ACTION
+// BUTTON
 document.getElementById("createBtn").onclick = function() {
     const code = editor.value;
     if (!code.trim()) return;
 
     const encoded = btoa(encodeURIComponent(code));
 
-    const rawUrl =
+    const url =
         window.location.origin +
         window.location.pathname +
         "?r=" +
         encoded;
 
-    // Copy raw link
-    navigator.clipboard.writeText(rawUrl).catch(() => {});
-
-    // Redirect (browser convenience)
-    window.location.href = rawUrl;
+    navigator.clipboard.writeText(url).catch(() => {});
+    window.location.href = url;
 };
 </script>
 
