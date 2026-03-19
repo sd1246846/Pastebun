@@ -2,66 +2,68 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Luau Bin</title>
+    <title>Sawyer's Luau Bin</title>
     <style>
-        /* Steel/Charcoal UI - 50% Transparency */
-        body { 
-            font-family: 'Consolas', monospace; 
-            background: #050505; 
-            margin: 0; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            height: 100vh;
-        }
-        .ui { 
-            width: 90%; 
-            max-width: 1000px; 
-            background: rgba(30, 30, 30, 0.5); 
-            backdrop-filter: blur(10px);
-            border: 1px solid #444;
-            border-radius: 8px;
-            padding: 20px;
-        }
-        textarea { 
-            width: 100%; 
-            height: 550px; 
-            background: rgba(0,0,0,0.6); 
-            color: #4ec9b0; 
-            border: 1px solid #333; 
-            padding: 15px; 
-            font-size: 14px; 
-            outline: none; 
-            resize: none;
-            box-sizing: border-box;
-        }
-        button { 
-            width: 100%;
-            margin-top: 15px;
-            padding: 12px; 
-            background: #3b82f6; 
-            color: #fff; 
-            border: none; 
-            cursor: pointer; 
-            font-weight: bold;
-            border-radius: 4px;
-        }
-        #msg { color: #3b82f6; font-size: 12px; margin-top: 10px; text-align: center; height: 15px; }
+        body { background: #050505; color: #fff; font-family: 'Consolas', monospace; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .ui { width: 90%; max-width: 1000px; background: rgba(30, 30, 30, 0.5); backdrop-filter: blur(10px); border: 1px solid #444; border-radius: 8px; padding: 25px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+        textarea { width: 100%; height: 500px; background: rgba(0,0,0,0.6); color: #4ec9b0; border: 1px solid #333; padding: 15px; font-size: 14px; outline: none; resize: none; box-sizing: border-box; }
+        
+        .antibot-box { margin-top: 15px; display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 4px; border: 1px solid #333; }
+        #captcha-text { font-weight: bold; color: #3b82f6; }
+        #captcha-input { background: #000; border: 1px solid #444; color: #fff; padding: 5px; width: 60px; outline: none; text-align: center; }
+        
+        button { width: 100%; margin-top: 15px; padding: 12px; background: #3b82f6; color: #fff; border: none; cursor: pointer; font-weight: bold; border-radius: 4px; transition: 0.2s; }
+        button:disabled { background: #222; color: #555; cursor: not-allowed; }
+        
+        /* The Honeypot: Invisible to humans, bait for bots */
+        .hp-field { position: absolute; left: -9999px; top: -9999px; }
+        
+        #msg { color: #3b82f6; font-size: 12px; margin-top: 10px; text-align: center; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <div class="ui">
+        <input type="text" id="honeypot" class="hp-field" tabindex="-1" autocomplete="off">
+        
         <textarea id="editor" placeholder="-- Paste Luau Script..." spellcheck="false"></textarea>
-        <button onclick="publish()">Create & View Raw</button>
+        
+        <div class="antibot-box">
+            <span>Verify you are human: </span>
+            <span id="captcha-text"></span>
+            <input type="text" id="captcha-input" placeholder="?">
+        </div>
+
+        <button id="submit-btn" onclick="publish()" disabled>Verify to Enable</button>
         <div id="msg"></div>
     </div>
 
     <script>
         const editor = document.getElementById('editor');
         const msg = document.getElementById('msg');
+        const captchaText = document.getElementById('captcha-text');
+        const captchaInput = document.getElementById('captcha-input');
+        const submitBtn = document.getElementById('submit-btn');
+        const honeypot = document.getElementById('honeypot');
 
-        // Studio-style Tabs & Brackets
+        // Generate Random Math
+        let num1 = Math.floor(Math.random() * 10) + 1;
+        let num2 = Math.floor(Math.random() * 10) + 1;
+        let answer = num1 + num2;
+        captchaText.innerText = `${num1} + ${num2} =`;
+
+        // Check Math Answer
+        captchaInput.oninput = () => {
+            if (parseInt(captchaInput.value) === answer) {
+                submitBtn.disabled = false;
+                submitBtn.innerText = "Create & View Raw";
+            } else {
+                submitBtn.disabled = true;
+                submitBtn.innerText = "Verify to Enable";
+            }
+        };
+
+        // Standard Luau Editor Logic
         editor.onkeydown = (e) => {
             const pairs = { '(': ')', '[': ']', '{': '}', '"': '"', "'": "'" };
             if (e.key === 'Tab') {
@@ -79,29 +81,38 @@
         };
 
         async function publish() {
+            // 1. HONEYPOT CHECK: Bots will fill this, humans won't.
+            if (honeypot.value !== "") {
+                msg.innerText = "Bot detected. Access denied.";
+                return;
+            }
+
             if (!editor.value) return;
-            msg.innerText = "Creating Link...";
+            msg.innerText = "Sending to dpaste...";
 
             try {
-                // Using an anonymous public API (No Token Needed)
-                const res = await fetch('https://pasted.py.al/api/pastes', {
+                const response = await fetch('https://dpaste.org/api/', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ content: editor.value })
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
+                        'content': editor.value,
+                        'format': 'url',
+                        'expires': 604800 // Link now lasts 1 WEEK
+                    })
                 });
 
-                const data = await res.json();
-                
-                // This builds the REAL raw URL
-                const rawUrl = `https://pasted.py.al/raw/${data.id}`;
+                if (!response.ok) throw new Error();
+
+                let url = await response.text();
+                const rawUrl = url.trim().replace(/"/g, "") + ".txt";
 
                 navigator.clipboard.writeText(rawUrl).then(() => {
-                    msg.innerText = "Raw Link Copied!";
+                    msg.innerText = "Link Copied!";
                     setTimeout(() => { window.location.href = rawUrl; }, 800);
                 });
 
             } catch (err) {
-                msg.innerText = "Error: Service might be down.";
+                msg.innerText = "Error: Service busy. Try again.";
             }
         }
     </script>
