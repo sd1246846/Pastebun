@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Pastebun</title>
+
+<script>
+// ===== RAW MODE (UNCHANGED) =====
+(function() {
+    const params = new URLSearchParams(window.location.search);
+    const data = params.get("r");
+    const isRaw = params.get("raw");
+
+    if (data) {
+        const decoded = decodeURIComponent(atob(data));
+
+        if (!isRaw) {
+            const rawUrl =
+                window.location.origin +
+                window.location.pathname +
+                "?raw=1&r=" +
+                data;
+
+            window.location.replace(rawUrl);
+            return;
+        }
+
+        document.open();
+        document.write(decoded);
+        document.close();
+
+        window.stop();
+    }
+})();
+</script>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: "Segoe UI", sans-serif;
+    background: linear-gradient(135deg, #181a1f, #23262d);
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.container {
+    width: 92%;
+    max-width: 950px;
+    height: 85vh;
+    background: rgba(30, 34, 42, 0.5);
+    backdrop-filter: blur(12px);
+    border-radius: 14px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+}
+
+.header {
+    font-size: 22px;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 12px;
+    letter-spacing: 0.5px;
+}
+
+textarea {
+    flex: 1;
+    width: 100%;
+    resize: none;
+    border: none;
+    outline: none;
+    background: #14171c;
+    color: #e6e6e6;
+    font-size: 14px;
+    padding: 14px;
+    border-radius: 10px;
+    font-family: Consolas, monospace;
+    line-height: 1.5;
+}
+
+button {
+    margin-top: 14px;
+    padding: 13px;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #3a3f47, #4a505a);
+    color: white;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+button:hover {
+    transform: translateY(-1px);
+    background: linear-gradient(135deg, #4a505a, #5a616c);
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+    <div class="header">Pastebun</div>
+
+    <textarea id="editor" placeholder="Paste your Luau code here..."></textarea>
+
+    <button id="createBtn">Create & View Raw</button>
+</div>
+
+<script>
+const editor = document.getElementById("editor");
+
+// TAB SUPPORT (4 spaces)
+editor.addEventListener("keydown", function(e) {
+    if (e.key === "Tab") {
+        e.preventDefault();
+        const start = this.selectionStart;
+        const end = this.selectionEnd;
+
+        this.value =
+            this.value.substring(0, start) +
+            "    " +
+            this.value.substring(end);
+
+        this.selectionStart = this.selectionEnd = start + 4;
+    }
+});
+
+// BUTTON
+document.getElementById("createBtn").onclick = function() {
+    const code = editor.value;
+    if (!code.trim()) return;
+
+    const encoded = btoa(encodeURIComponent(code));
+
+    const rawUrl =
+        window.location.origin +
+        window.location.pathname +
+        "?raw=1&r=" +
+        encoded;
+
+    navigator.clipboard.writeText(rawUrl).catch(() => {});
+    window.location.href = rawUrl;
+};
+</script>
+
+</body>
+</html>
