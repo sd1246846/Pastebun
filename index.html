@@ -5,31 +5,26 @@
 <title>Pastebun</title>
 
 <script>
-// ===== RAW MODE (UNCHANGED) =====
+// ===== EXECUTOR-SAFE RAW MODE (NO REDIRECT NEEDED) =====
 (function() {
     const params = new URLSearchParams(window.location.search);
     const data = params.get("r");
-    const isRaw = params.get("raw");
 
     if (data) {
-        const decoded = decodeURIComponent(atob(data));
+        try {
+            const decoded = decodeURIComponent(atob(data));
 
-        if (!isRaw) {
-            const rawUrl =
-                window.location.origin +
-                window.location.pathname +
-                "?raw=1&r=" +
-                data;
+            // Instantly replace page with raw content
+            document.open();
+            document.write(decoded);
+            document.close();
 
-            window.location.replace(rawUrl);
-            return;
+            window.stop();
+        } catch (e) {
+            document.open();
+            document.write("Error decoding content.");
+            document.close();
         }
-
-        document.open();
-        document.write(decoded);
-        document.close();
-
-        window.stop();
     }
 })();
 </script>
@@ -133,7 +128,7 @@ editor.addEventListener("keydown", function(e) {
     }
 });
 
-// BUTTON
+// BUTTON ACTION
 document.getElementById("createBtn").onclick = function() {
     const code = editor.value;
     if (!code.trim()) return;
@@ -143,10 +138,13 @@ document.getElementById("createBtn").onclick = function() {
     const rawUrl =
         window.location.origin +
         window.location.pathname +
-        "?raw=1&r=" +
+        "?r=" +
         encoded;
 
+    // Copy raw link
     navigator.clipboard.writeText(rawUrl).catch(() => {});
+
+    // Redirect (browser convenience)
     window.location.href = rawUrl;
 };
 </script>
