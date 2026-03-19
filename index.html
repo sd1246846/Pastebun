@@ -1,30 +1,38 @@
-<script>
-// ===== HARD INLINE RAW (EXECUTES BEFORE EVERYTHING) =====
-(function() {
-    const search = location.search;
-    if (!search.includes("?r=")) return;
-
-    try {
-        const data = new URLSearchParams(search).get("r");
-        const decoded = decodeURIComponent(atob(data));
-
-        // Immediately wipe document BEFORE HTML parses
-        document.write(decoded);
-
-        // Stop page completely
-        document.close();
-    } catch (e) {
-        document.write("Error decoding content.");
-        document.close();
-    }
-})();
-</script>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <title>Pastebun</title>
+
+<script>
+// ===== STABLE RAW MODE =====
+(function() {
+    const params = new URLSearchParams(window.location.search);
+    const data = params.get("r");
+
+    if (data) {
+        try {
+            const decoded = decodeURIComponent(atob(data));
+
+            // Escape HTML so it never renders as UI
+            const safe = decoded
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
+
+            // Replace entire page content safely
+            document.documentElement.innerHTML =
+                "<head><title>Raw</title></head>" +
+                "<body style='margin:0;background:#0f1115;color:#e6e6e6;font-family:monospace;white-space:pre-wrap;padding:10px;'>" +
+                safe +
+                "</body>";
+
+        } catch (e) {
+            document.body.innerText = "Error decoding.";
+        }
+    }
+})();
+</script>
 
 <style>
 * { box-sizing: border-box; }
