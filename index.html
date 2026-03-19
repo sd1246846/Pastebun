@@ -1,187 +1,109 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Xenos-Style Gist Editor</title>
-
-<!-- Monaco Editor CDN -->
-<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
-
-<style>
-body {
-    margin: 0;
-    background: #0f0f0f;
-    font-family: Arial, sans-serif;
-}
-
-#window {
-    width: 90%;
-    max-width: 900px;
-    height: 600px;
-    background: rgba(20,20,20,0.95);
-    border-radius: 12px;
-    overflow: hidden;
-    position: absolute;
-    top: 50px;
-    left: 50%;
-    transform: translateX(-50%);
-    box-shadow: 0 0 25px rgba(0,0,0,0.7);
-    display: flex;
-    flex-direction: column;
-    user-select: none;
-}
-
-#titlebar {
-    height: 35px;
-    background: #1a1a1a;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0 10px;
-    cursor: move;
-}
-
-#titlebar span {
-    font-weight: bold;
-    color: white;
-}
-
-#titlebar button {
-    background: #2a2a2a;
-    border: none;
-    color: white;
-    padding: 3px 8px;
-    border-radius: 4px;
-    cursor: pointer;
-}
-
-#titlebar button:hover {
-    background: #3a3a3a;
-}
-
-#editor {
-    flex: 1;
-}
-
-#buttons {
-    background: #1a1a1a;
-    padding: 6px 10px;
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-}
-
-#buttons button {
-    flex: 1;
-    padding: 8px 12px;
-    border-radius: 6px;
-    border: none;
-    background: #2a2a2a;
-    color: white;
-    cursor: pointer;
-    font-weight: bold;
-}
-
-#buttons button:hover {
-    background: #3a3a3a;
-}
-
-</style>
+    <meta charset="UTF-8">
+    <title>Luau Bin</title>
+    <style>
+        /* Steel/Charcoal UI - 50% Transparency */
+        body { 
+            font-family: 'Consolas', monospace; 
+            background: #050505; 
+            margin: 0; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh;
+        }
+        .ui { 
+            width: 90%; 
+            max-width: 1000px; 
+            background: rgba(30, 30, 30, 0.5); 
+            backdrop-filter: blur(10px);
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        textarea { 
+            width: 100%; 
+            height: 550px; 
+            background: rgba(0,0,0,0.6); 
+            color: #4ec9b0; 
+            border: 1px solid #333; 
+            padding: 15px; 
+            font-size: 14px; 
+            outline: none; 
+            resize: none;
+            box-sizing: border-box;
+        }
+        button { 
+            width: 100%;
+            margin-top: 15px;
+            padding: 12px; 
+            background: #3b82f6; 
+            color: #fff; 
+            border: none; 
+            cursor: pointer; 
+            font-weight: bold;
+            border-radius: 4px;
+        }
+        #msg { color: #3b82f6; font-size: 12px; margin-top: 10px; text-align: center; height: 15px; }
+    </style>
 </head>
 <body>
 
-<div id="window">
-    <div id="titlebar">
-        <span>Xenos Gist Editor</span>
-        <div>
-            <button onclick="reopen()">−</button>
-            <button onclick="closeWindow()">✕</button>
-        </div>
+    <div class="ui">
+        <textarea id="editor" placeholder="-- Paste Luau Script..." spellcheck="false"></textarea>
+        <button onclick="publish()">Create & View Raw</button>
+        <div id="msg"></div>
     </div>
-    <div id="editor"></div>
-    <div id="buttons">
-        <button onclick="copyRaw()">Copy Raw URL</button>
-        <button onclick="copyLoadstring()">Copy Loadstring</button>
-        <button onclick="loadNewGist()">Load Another Gist</button>
-    </div>
-</div>
 
-<script>
-let editor;
-let windowDiv = document.getElementById("window");
-let rawURL = "https://gist.githubusercontent.com/sd1246846/3ba8f6e83ea5f0386dbd258910bbc1c4/raw/89972c324e426beaf92594d0fa6b919b46ef1297/script.lua";
+    <script>
+        const editor = document.getElementById('editor');
+        const msg = document.getElementById('msg');
 
-// Dragging
-let isDragging = false, offsetX, offsetY;
-document.getElementById("titlebar").addEventListener('mousedown', e => {
-    isDragging = true;
-    offsetX = e.clientX - windowDiv.offsetLeft;
-    offsetY = e.clientY - windowDiv.offsetTop;
-});
-document.addEventListener('mouseup', () => isDragging = false);
-document.addEventListener('mousemove', e => {
-    if (isDragging) {
-        windowDiv.style.left = (e.clientX - offsetX) + 'px';
-        windowDiv.style.top = (e.clientY - offsetY) + 'px';
-    }
-});
+        // Studio-style Tabs & Brackets
+        editor.onkeydown = (e) => {
+            const pairs = { '(': ')', '[': ']', '{': '}', '"': '"', "'": "'" };
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                const s = editor.selectionStart;
+                editor.value = editor.value.substring(0, s) + "    " + editor.value.substring(editor.selectionEnd);
+                editor.selectionStart = editor.selectionEnd = s + 4;
+            }
+            if (pairs[e.key]) {
+                e.preventDefault();
+                const s = editor.selectionStart;
+                editor.value = editor.value.substring(0, s) + e.key + pairs[e.key] + editor.value.substring(editor.selectionEnd);
+                editor.selectionStart = editor.selectionEnd = s + 1;
+            }
+        };
 
-// Monaco Editor
-require.config({ paths: { vs: "https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs" }});
-require(["vs/editor/editor.main"], async function () {
-    const res = await fetch(rawURL);
-    const code = await res.text();
-    editor = monaco.editor.create(document.getElementById("editor"), {
-        value: code,
-        language: "lua",
-        theme: "vs-dark",
-        fontSize: 14,
-        minimap: { enabled: false },
-    });
-});
+        async function publish() {
+            if (!editor.value) return;
+            msg.innerText = "Creating Link...";
 
-// Buttons
-function copyRaw() {
-    navigator.clipboard.writeText(rawURL);
-    alert("Raw URL copied!");
-}
+            try {
+                // Using an anonymous public API (No Token Needed)
+                const res = await fetch('https://pasted.py.al/api/pastes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content: editor.value })
+                });
 
-function copyLoadstring() {
-    const str = `loadstring(game:HttpGet("${rawURL}"))()`;
-    navigator.clipboard.writeText(str);
-    alert("Loadstring copied!");
-}
+                const data = await res.json();
+                
+                // This builds the REAL raw URL
+                const rawUrl = `https://pasted.py.al/raw/${data.id}`;
 
-function loadNewGist() {
-    let url = prompt("Enter raw Gist URL:");
-    if (!url) return;
-    rawURL = url;
-    fetch(rawURL).then(r => r.text()).then(code => {
-        editor.setValue(code);
-        alert("Loaded new Gist!");
-    }).catch(()=>alert("Failed to load Gist"));
-}
+                navigator.clipboard.writeText(rawUrl).then(() => {
+                    msg.innerText = "Raw Link Copied!";
+                    setTimeout(() => { window.location.href = rawUrl; }, 800);
+                });
 
-// Reopen/Minimize
-function reopen() {
-    if (windowDiv.style.height === "35px") {
-        windowDiv.style.height = "600px";
-        document.getElementById("editor").style.display = "block";
-        document.getElementById("buttons").style.display = "flex";
-    } else {
-        windowDiv.style.height = "35px";
-        document.getElementById("editor").style.display = "none";
-        document.getElementById("buttons").style.display = "none";
-    }
-}
-
-// Close
-function closeWindow() {
-    if(confirm("Are you sure you want to close the editor?")) {
-        windowDiv.style.display = "none";
-    }
-}
-</script>
-
+            } catch (err) {
+                msg.innerText = "Error: Service might be down.";
+            }
+        }
+    </script>
 </body>
 </html>
