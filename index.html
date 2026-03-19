@@ -1,31 +1,30 @@
+<script>
+// ===== HARD INLINE RAW (EXECUTES BEFORE EVERYTHING) =====
+(function() {
+    const search = location.search;
+    if (!search.includes("?r=")) return;
+
+    try {
+        const data = new URLSearchParams(search).get("r");
+        const decoded = decodeURIComponent(atob(data));
+
+        // Immediately wipe document BEFORE HTML parses
+        document.write(decoded);
+
+        // Stop page completely
+        document.close();
+    } catch (e) {
+        document.write("Error decoding content.");
+        document.close();
+    }
+})();
+</script>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <title>Pastebun</title>
-
-<script>
-// ===== TRUE RAW USING BLOB (EXECUTOR SAFE) =====
-(function() {
-    const params = new URLSearchParams(window.location.search);
-    const data = params.get("r");
-
-    if (data) {
-        try {
-            const decoded = decodeURIComponent(atob(data));
-
-            // Create real raw text file
-            const blob = new Blob([decoded], { type: "text/plain" });
-            const url = URL.createObjectURL(blob);
-
-            // Redirect to pure text view
-            window.location.replace(url);
-        } catch (e) {
-            document.body.innerText = "Error decoding content.";
-        }
-    }
-})();
-</script>
 
 <style>
 * { box-sizing: border-box; }
