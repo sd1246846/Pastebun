@@ -2,141 +2,185 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Pastebun</title>
+<title>Xenos-Style Gist Editor</title>
 
-<script>
-// ===== STABLE RAW MODE =====
-(function() {
-    const params = new URLSearchParams(window.location.search);
-    const data = params.get("r");
-
-    if (data) {
-        try {
-            const decoded = decodeURIComponent(atob(data));
-
-            // Escape HTML so it never renders as UI
-            const safe = decoded
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;");
-
-            // Replace entire page content safely
-            document.documentElement.innerHTML =
-                "<head><title>Raw</title></head>" +
-                "<body style='margin:0;background:#0f1115;color:#e6e6e6;font-family:monospace;white-space:pre-wrap;padding:10px;'>" +
-                safe +
-                "</body>";
-
-        } catch (e) {
-            document.body.innerText = "Error decoding.";
-        }
-    }
-})();
-</script>
+<!-- Monaco Editor CDN -->
+<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
 
 <style>
-* { box-sizing: border-box; }
-
 body {
     margin: 0;
-    font-family: "Segoe UI", sans-serif;
-    background: linear-gradient(135deg, #181a1f, #23262d);
-    height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    background: #0f0f0f;
+    font-family: Arial, sans-serif;
 }
 
-.container {
-    width: 92%;
-    max-width: 950px;
-    height: 85vh;
-    background: rgba(30, 34, 42, 0.5);
-    backdrop-filter: blur(12px);
-    border-radius: 14px;
-    padding: 18px;
+#window {
+    width: 90%;
+    max-width: 900px;
+    height: 600px;
+    background: rgba(20,20,20,0.95);
+    border-radius: 12px;
+    overflow: hidden;
+    position: absolute;
+    top: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    box-shadow: 0 0 25px rgba(0,0,0,0.7);
     display: flex;
     flex-direction: column;
+    user-select: none;
 }
 
-.header {
-    font-size: 22px;
-    font-weight: 700;
-    color: #ffffff;
-    margin-bottom: 12px;
+#titlebar {
+    height: 35px;
+    background: #1a1a1a;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 10px;
+    cursor: move;
 }
 
-textarea {
-    flex: 1;
-    width: 100%;
-    resize: none;
-    border: none;
-    outline: none;
-    background: #14171c;
-    color: #e6e6e6;
-    font-size: 14px;
-    padding: 14px;
-    border-radius: 10px;
-    font-family: Consolas, monospace;
-}
-
-button {
-    margin-top: 14px;
-    padding: 13px;
-    border: none;
-    border-radius: 10px;
-    background: #3a3f47;
+#titlebar span {
+    font-weight: bold;
     color: white;
-    font-weight: 600;
+}
+
+#titlebar button {
+    background: #2a2a2a;
+    border: none;
+    color: white;
+    padding: 3px 8px;
+    border-radius: 4px;
     cursor: pointer;
 }
+
+#titlebar button:hover {
+    background: #3a3a3a;
+}
+
+#editor {
+    flex: 1;
+}
+
+#buttons {
+    background: #1a1a1a;
+    padding: 6px 10px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+#buttons button {
+    flex: 1;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: none;
+    background: #2a2a2a;
+    color: white;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+#buttons button:hover {
+    background: #3a3a3a;
+}
+
 </style>
 </head>
-
 <body>
-<div class="container">
-    <div class="header">Pastebun</div>
 
-    <textarea id="editor" placeholder="Paste your Luau code here..."></textarea>
-
-    <button id="createBtn">Create & View Raw</button>
+<div id="window">
+    <div id="titlebar">
+        <span>Xenos Gist Editor</span>
+        <div>
+            <button onclick="reopen()">−</button>
+            <button onclick="closeWindow()">✕</button>
+        </div>
+    </div>
+    <div id="editor"></div>
+    <div id="buttons">
+        <button onclick="copyRaw()">Copy Raw URL</button>
+        <button onclick="copyLoadstring()">Copy Loadstring</button>
+        <button onclick="loadNewGist()">Load Another Gist</button>
+    </div>
 </div>
 
 <script>
-const editor = document.getElementById("editor");
+let editor;
+let windowDiv = document.getElementById("window");
+let rawURL = "https://gist.githubusercontent.com/sd1246846/3ba8f6e83ea5f0386dbd258910bbc1c4/raw/89972c324e426beaf92594d0fa6b919b46ef1297/script.lua";
 
-// TAB SUPPORT
-editor.addEventListener("keydown", function(e) {
-    if (e.key === "Tab") {
-        e.preventDefault();
-        const start = this.selectionStart;
-        const end = this.selectionEnd;
-
-        this.value =
-            this.value.substring(0, start) +
-            "    " +
-            this.value.substring(end);
-
-        this.selectionStart = this.selectionEnd = start + 4;
+// Dragging
+let isDragging = false, offsetX, offsetY;
+document.getElementById("titlebar").addEventListener('mousedown', e => {
+    isDragging = true;
+    offsetX = e.clientX - windowDiv.offsetLeft;
+    offsetY = e.clientY - windowDiv.offsetTop;
+});
+document.addEventListener('mouseup', () => isDragging = false);
+document.addEventListener('mousemove', e => {
+    if (isDragging) {
+        windowDiv.style.left = (e.clientX - offsetX) + 'px';
+        windowDiv.style.top = (e.clientY - offsetY) + 'px';
     }
 });
 
-// BUTTON
-document.getElementById("createBtn").onclick = function() {
-    const code = editor.value;
-    if (!code.trim()) return;
+// Monaco Editor
+require.config({ paths: { vs: "https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs" }});
+require(["vs/editor/editor.main"], async function () {
+    const res = await fetch(rawURL);
+    const code = await res.text();
+    editor = monaco.editor.create(document.getElementById("editor"), {
+        value: code,
+        language: "lua",
+        theme: "vs-dark",
+        fontSize: 14,
+        minimap: { enabled: false },
+    });
+});
 
-    const encoded = btoa(encodeURIComponent(code));
+// Buttons
+function copyRaw() {
+    navigator.clipboard.writeText(rawURL);
+    alert("Raw URL copied!");
+}
 
-    const url =
-        window.location.origin +
-        window.location.pathname +
-        "?r=" +
-        encoded;
+function copyLoadstring() {
+    const str = `loadstring(game:HttpGet("${rawURL}"))()`;
+    navigator.clipboard.writeText(str);
+    alert("Loadstring copied!");
+}
 
-    navigator.clipboard.writeText(url).catch(() => {});
-    window.location.href = url;
-};
+function loadNewGist() {
+    let url = prompt("Enter raw Gist URL:");
+    if (!url) return;
+    rawURL = url;
+    fetch(rawURL).then(r => r.text()).then(code => {
+        editor.setValue(code);
+        alert("Loaded new Gist!");
+    }).catch(()=>alert("Failed to load Gist"));
+}
+
+// Reopen/Minimize
+function reopen() {
+    if (windowDiv.style.height === "35px") {
+        windowDiv.style.height = "600px";
+        document.getElementById("editor").style.display = "block";
+        document.getElementById("buttons").style.display = "flex";
+    } else {
+        windowDiv.style.height = "35px";
+        document.getElementById("editor").style.display = "none";
+        document.getElementById("buttons").style.display = "none";
+    }
+}
+
+// Close
+function closeWindow() {
+    if(confirm("Are you sure you want to close the editor?")) {
+        windowDiv.style.display = "none";
+    }
+}
 </script>
 
 </body>
